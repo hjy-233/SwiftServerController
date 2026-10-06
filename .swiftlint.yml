@@ -1,0 +1,5 @@
+excluded:
+  - SwiftServerController/Core/.build
+
+trailing_comma:
+  mandatory_comma: true

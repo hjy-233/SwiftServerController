@@ -1,0 +1,100 @@
+//
+//  ContainerClient.swift
+//  SwiftServerControllerCore
+//
+//  Created by hjy_666 on 2026/10/5.
+//
+
+import Foundation
+
+public enum ContainerClientError: LocalizedError {
+    case commandFailed(exitCode: Int32, message: String)
+    case invalidOutput
+
+    public var errorDescription: String? {
+        switch self {
+        case let .commandFailed(exitCode, message):
+            if message.isEmpty {
+                return "container command failed with exit code \(exitCode)."
+            }
+
+            return "container command failed with exit code \(exitCode): \(message)"
+        case .invalidOutput:
+            return "container command returned invalid UTF-8 output."
+        }
+    }
+}
+
+public struct ContainerClient {
+    private let executableURL: URL
+
+    public init() {
+        executableURL = URL(fileURLWithPath: "/usr/local/bin/container")
+    }
+
+    init(executableURL: URL) {
+        self.executableURL = executableURL
+    }
+
+    private func execute(arguments: [String]) throws -> String {
+        let process = Process()
+        let outputPipe = Pipe()
+
+        process.executableURL = executableURL
+        process.arguments = arguments
+        process.standardOutput = outputPipe
+        process.standardError = outputPipe
+
+        try process.run()
+        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        guard let decodedOutput = String(bytes: data, encoding: .utf8) else {
+            throw ContainerClientError.invalidOutput
+        }
+
+        let output = decodedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard process.terminationStatus == 0 else {
+            throw ContainerClientError.commandFailed(
+                exitCode: process.terminationStatus,
+                message: output,
+            )
+        }
+
+        return output
+    }
+
+    public func version() throws -> String {
+        try execute(arguments: ["--version"])
+    }
+
+    public func listContainers() throws -> [ContainerInfo] {
+        let output = try execute(arguments: [
+            "list",
+            "--all",
+            "--format",
+            "json",
+        ])
+
+        return try JSONDecoder().decode([ContainerInfo].self, from: Data(output.utf8))
+    }
+}
+
+public struct ContainerInfo: Decodable, Identifiable {
+    public let status: String
+    public let configuration: Configuration
+
+    public var id: String {
+        configuration.id
+    }
+
+    public struct Configuration: Decodable {
+        public let id: String
+        public let image: Image
+    }
+
+    public struct Image: Decodable {
+        public let reference: String
+    }
+}
