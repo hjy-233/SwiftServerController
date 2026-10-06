@@ -14,6 +14,29 @@ struct ContentView: View {
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
 
+    private func toggleContainer(_ container: ContainerInfo) async {
+        isLoading = true
+        errorMessage = nil
+
+        defer {
+            isLoading = false
+        }
+
+        do {
+            let client = ContainerClient()
+
+            if container.status == "running" {
+                try await client.stopContainer(id: container.id)
+            } else {
+                try await client.startContainer(id: container.id)
+            }
+
+            containers = try await client.listContainers()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     var body: some View {
         VStack {
             Text("版本:\(version)")
@@ -37,6 +60,11 @@ struct ContentView: View {
                             Text(container.id)
                             Text(container.configuration.image.reference)
                             Text(container.status)
+                            Button(container.status == "running" ? "停止" : "启动") {
+                                Task {
+                                    await toggleContainer(container)
+                                }
+                            }
                         }
                     }
                 }

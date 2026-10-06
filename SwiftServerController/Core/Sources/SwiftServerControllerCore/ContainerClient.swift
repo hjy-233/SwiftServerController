@@ -86,6 +86,14 @@ public struct ContainerClient: Sendable {
 
         return try JSONDecoder().decode([ContainerInfo].self, from: Data(output.utf8))
     }
+
+    public func startContainer(id: String) async throws {
+        _ = try await execute(arguments: ["start", id])
+    }
+
+    public func stopContainer(id: String) async throws {
+        _ = try await execute(arguments: ["stop", id])
+    }
 }
 
 public struct ContainerInfo: Decodable, Identifiable {
