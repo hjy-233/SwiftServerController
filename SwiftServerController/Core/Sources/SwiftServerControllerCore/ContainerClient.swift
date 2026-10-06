@@ -94,6 +94,26 @@ public struct ContainerClient: Sendable {
     public func stopContainer(id: String) async throws {
         _ = try await execute(arguments: ["stop", id])
     }
+
+    public func createMinecraftContainer(profile: MinecraftServerProfile) async throws {
+        _ = try await execute(arguments: [
+            "create",
+            "--name",
+            "minecraft-\(profile.id)",
+            "--memory",
+            "\(profile.memoryInMB)M",
+            "--publish",
+            "\(profile.port):25565",
+            "--mount",
+            "type=bind,source=\(profile.dataDirectory.path),target=/server",
+            "docker.io/library/eclipse-temurin:21-jre",
+            "java",
+            "-Xmx\(profile.memoryInMB)M",
+            "-jar",
+            "/server/server.jar",
+            "nogui",
+        ])
+    }
 }
 
 public struct ContainerInfo: Decodable, Identifiable {
