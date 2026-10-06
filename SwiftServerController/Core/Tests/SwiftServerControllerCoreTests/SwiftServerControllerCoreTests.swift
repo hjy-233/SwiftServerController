@@ -2,17 +2,17 @@ import Foundation
 @testable import SwiftServerControllerCore
 import Testing
 
-@Test func versionReturnsCommandOutput() throws {
+@Test func versionReturnsCommandOutput() async throws {
     let client = ContainerClient(executableURL: URL(fileURLWithPath: "/bin/echo"))
 
-    #expect(try client.version() == "--version")
+    #expect(try await client.version() == "--version")
 }
 
-@Test func versionThrowsWhenCommandFails() {
+@Test func versionThrowsWhenCommandFails() async {
     let client = ContainerClient(executableURL: URL(fileURLWithPath: "/usr/bin/false"))
 
-    #expect(throws: ContainerClientError.self) {
-        try client.version()
+    await #expect(throws: ContainerClientError.self) {
+        try await client.version()
     }
 }
 

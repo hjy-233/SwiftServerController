@@ -15,10 +15,12 @@ struct ContentView: View {
         VStack {
             Text("版本:\(version)")
             Button("Check") {
-                do {
-                    version = try ContainerClient().version()
-                } catch {
-                    version = error.localizedDescription
+                Task {
+                    do {
+                        version = try await ContainerClient().version()
+                    } catch {
+                        version = error.localizedDescription
+                    }
                 }
             }
         }

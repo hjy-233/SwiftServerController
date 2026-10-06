@@ -25,7 +25,7 @@ public enum ContainerClientError: LocalizedError {
     }
 }
 
-public struct ContainerClient {
+public struct ContainerClient: Sendable {
     private let executableURL: URL
 
     public init() {
@@ -36,7 +36,7 @@ public struct ContainerClient {
         self.executableURL = executableURL
     }
 
-    private func execute(arguments: [String]) throws -> String {
+    private func executeSync(arguments: [String]) throws -> String {
         let process = Process()
         let outputPipe = Pipe()
 
@@ -65,12 +65,19 @@ public struct ContainerClient {
         return output
     }
 
-    public func version() throws -> String {
-        try execute(arguments: ["--version"])
+    private func execute(arguments: [String]) async throws -> String {
+        let task = Task.detached {
+            try executeSync(arguments: arguments)
+        }
+        return try await task.value
     }
 
-    public func listContainers() throws -> [ContainerInfo] {
-        let output = try execute(arguments: [
+    public func version() async throws -> String {
+        try await execute(arguments: ["--version"])
+    }
+
+    public func listContainers() async throws -> [ContainerInfo] {
+        let output = try await execute(arguments: [
             "list",
             "--all",
             "--format",
