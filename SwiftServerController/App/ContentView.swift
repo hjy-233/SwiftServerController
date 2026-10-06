@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var containers = [ContainerInfo]()
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
+    @State private var isShowingCreateServer = false
 
     private func toggleContainer(_ container: ContainerInfo) async {
         isLoading = true
@@ -47,12 +48,12 @@ struct ContentView: View {
                     ContentUnavailableView(
                         "加载失败",
                         systemImage: "exclamationmark.triangle",
-                        description: Text(errorMessage),
+                        description: Text(errorMessage)
                     )
                 } else if containers.isEmpty {
                     ContentUnavailableView(
                         "暂无容器",
-                        systemImage: "shippingbox",
+                        systemImage: "shippingbox"
                     )
                 } else {
                     List(containers) { container in
@@ -84,6 +85,16 @@ struct ContentView: View {
             }.disabled(isLoading)
         }
         .padding()
+        .toolbar {
+            Button {
+                isShowingCreateServer = true
+            } label: {
+                Label("添加服务器", systemImage: "plus")
+            }
+        }
+        .sheet(isPresented: $isShowingCreateServer) {
+            CreateServerView()
+        }
     }
 }
 

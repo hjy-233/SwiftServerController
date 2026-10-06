@@ -1,3 +1,10 @@
+//
+//  MinecraftServerProfile.swift
+//  SwiftServerControllerCore
+//
+//  Created by hjy_666 on 2026/10/6.
+//
+
 import Foundation
 
 public struct MinecraftServerProfile: Identifiable, Codable {
