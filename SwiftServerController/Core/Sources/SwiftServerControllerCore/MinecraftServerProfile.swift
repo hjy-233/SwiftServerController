@@ -22,7 +22,7 @@ public struct MinecraftServerProfile: Identifiable, Codable {
         dataDirectory: URL,
         name: String,
         port: UInt16,
-        memoryInMB: Int
+        memoryInMB: Int,
     ) {
         self.id = id
         self.version = version

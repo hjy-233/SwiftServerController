@@ -35,7 +35,7 @@ import Testing
 
     let containers = try JSONDecoder().decode(
         [ContainerInfo].self,
-        from: Data(json.utf8),
+        from: Data(json.utf8)
     )
 
     #expect(containers.count == 1)
@@ -47,8 +47,81 @@ import Testing
 @Test func emptyContainerInfoDecode() throws {
     let containers = try JSONDecoder().decode(
         [ContainerInfo].self,
-        from: Data("[]".utf8),
+        from: Data("[]".utf8)
     )
 
     #expect(containers.isEmpty)
+}
+
+@Test func createMinecraftContainerThrowsWhenServerJarIsMissing() async throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let client = ContainerClient(executableURL: URL(fileURLWithPath: "/bin/echo"))
+
+    await #expect(throws: ContainerClientError.serverJarNotFound) {
+        try await client.createMinecraftContainer(profile: makeProfile(dataDirectory: directory))
+    }
+}
+
+@Test func createMinecraftContainerThrowsWhenEULAIsMissing() async throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try Data().write(to: directory.appendingPathComponent("server.jar"))
+
+    let client = ContainerClient(executableURL: URL(fileURLWithPath: "/bin/echo"))
+
+    await #expect(throws: ContainerClientError.eulaNotAccepted) {
+        try await client.createMinecraftContainer(profile: makeProfile(dataDirectory: directory))
+    }
+}
+
+@Test func createMinecraftContainerThrowsWhenEULAIsFalse() async throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try Data().write(to: directory.appendingPathComponent("server.jar"))
+    try "eula=false".write(
+        to: directory.appendingPathComponent("eula.txt"),
+        atomically: true,
+        encoding: .utf8
+    )
+
+    let client = ContainerClient(executableURL: URL(fileURLWithPath: "/bin/echo"))
+
+    await #expect(throws: ContainerClientError.eulaNotAccepted) {
+        try await client.createMinecraftContainer(profile: makeProfile(dataDirectory: directory))
+    }
+}
+
+@Test func createMinecraftContainerAcceptsSpacedEULAProperty() async throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try Data().write(to: directory.appendingPathComponent("server.jar"))
+    try "eula = true".write(
+        to: directory.appendingPathComponent("eula.txt"),
+        atomically: true,
+        encoding: .utf8
+    )
+
+    let client = ContainerClient(executableURL: URL(fileURLWithPath: "/bin/echo"))
+
+    try await client.createMinecraftContainer(profile: makeProfile(dataDirectory: directory))
+}
+
+private func makeTemporaryDirectory() throws -> URL {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
+}
+
+private func makeProfile(dataDirectory: URL) -> MinecraftServerProfile {
+    MinecraftServerProfile(
+        id: UUID(),
+        version: "26.3",
+        dataDirectory: dataDirectory,
+        name: "Test Server",
+        port: 25565,
+        memoryInMB: 4096
+    )
 }

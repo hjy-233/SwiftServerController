@@ -48,12 +48,12 @@ struct ContentView: View {
                     ContentUnavailableView(
                         "加载失败",
                         systemImage: "exclamationmark.triangle",
-                        description: Text(errorMessage)
+                        description: Text(errorMessage),
                     )
                 } else if containers.isEmpty {
                     ContentUnavailableView(
                         "暂无容器",
-                        systemImage: "shippingbox"
+                        systemImage: "shippingbox",
                     )
                 } else {
                     List(containers) { container in

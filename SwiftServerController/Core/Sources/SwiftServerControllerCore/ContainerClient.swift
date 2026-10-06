@@ -7,9 +7,11 @@
 
 import Foundation
 
-public enum ContainerClientError: LocalizedError {
+public enum ContainerClientError: LocalizedError, Equatable {
     case commandFailed(exitCode: Int32, message: String)
     case invalidOutput
+    case serverJarNotFound
+    case eulaNotAccepted
 
     public var errorDescription: String? {
         switch self {
@@ -17,10 +19,13 @@ public enum ContainerClientError: LocalizedError {
             if message.isEmpty {
                 return "container command failed with exit code \(exitCode)."
             }
-
             return "container command failed with exit code \(exitCode): \(message)"
         case .invalidOutput:
             return "container command returned invalid UTF-8 output."
+        case .serverJarNotFound:
+            return "server.jar not found."
+        case .eulaNotAccepted:
+            return "EULA not accepted."
         }
     }
 }
@@ -58,7 +63,7 @@ public struct ContainerClient: Sendable {
         guard process.terminationStatus == 0 else {
             throw ContainerClientError.commandFailed(
                 exitCode: process.terminationStatus,
-                message: output,
+                message: output
             )
         }
 
@@ -96,6 +101,37 @@ public struct ContainerClient: Sendable {
     }
 
     public func createMinecraftContainer(profile: MinecraftServerProfile) async throws {
+        let serverJarURL = profile.dataDirectory.appendingPathComponent("server.jar")
+        var isDirectory: ObjCBool = false
+
+        guard FileManager.default.fileExists(
+            atPath: serverJarURL.path,
+            isDirectory: &isDirectory
+        ), !isDirectory.boolValue else {
+            throw ContainerClientError.serverJarNotFound
+        }
+
+        let eulaURL = profile.dataDirectory.appendingPathComponent("eula.txt")
+
+        guard let eulaContents = try? String(contentsOf: eulaURL, encoding: .utf8) else {
+            throw ContainerClientError.eulaNotAccepted
+        }
+
+        let hasAcceptedEULA = eulaContents
+            .split(whereSeparator: \.isNewline)
+            .contains { line in
+                let parts = line.split(separator: "=", maxSplits: 1)
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+
+                return parts.count == 2
+                    && parts[0] == "eula"
+                    && parts[1].lowercased() == "true"
+            }
+
+        guard hasAcceptedEULA else {
+            throw ContainerClientError.eulaNotAccepted
+        }
+
         _ = try await execute(arguments: [
             "create",
             "--name",

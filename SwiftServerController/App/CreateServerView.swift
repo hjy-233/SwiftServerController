@@ -48,7 +48,7 @@ struct CreateServerView: View {
         .fileImporter(
             isPresented: $isSelectingDirectory,
             allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
+            allowsMultipleSelection: false,
         ) { result in
             switch result {
             case let .success(urls):
