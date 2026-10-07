@@ -108,6 +108,15 @@ import Testing
     try await client.createMinecraftContainer(profile: makeProfile(dataDirectory: directory))
 }
 
+@Test func minecraftContainerUsesServerDirectoryAsWorkingDirectory() throws {
+    let client = ContainerClient(executableURL: URL(fileURLWithPath: "/bin/echo"))
+    let profile = makeProfile(dataDirectory: URL(fileURLWithPath: "/server-data"))
+    let arguments = client.minecraftContainerArguments(profile: profile)
+    let workdirIndex = try #require(arguments.firstIndex(of: "--workdir"))
+
+    #expect(arguments[workdirIndex + 1] == "/server")
+}
+
 private func makeTemporaryDirectory() throws -> URL {
     let directory = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString, isDirectory: true)

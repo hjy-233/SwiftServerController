@@ -132,7 +132,11 @@ public struct ContainerClient: Sendable {
             throw ContainerClientError.eulaNotAccepted
         }
 
-        _ = try await execute(arguments: [
+        _ = try await execute(arguments: minecraftContainerArguments(profile: profile))
+    }
+
+    func minecraftContainerArguments(profile: MinecraftServerProfile) -> [String] {
+        [
             "create",
             "--name",
             "minecraft-\(profile.id)",
@@ -150,7 +154,7 @@ public struct ContainerClient: Sendable {
             "-jar",
             "/server/server.jar",
             "nogui",
-        ])
+        ]
     }
 }
 
