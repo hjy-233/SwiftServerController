@@ -134,3 +134,50 @@ private func makeProfile(dataDirectory: URL) -> MinecraftServerProfile {
         memoryInMB: 4096,
     )
 }
+
+@Test func loadReturnsEmptyArrayWhenFileDoesNotExist() throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let fileURL = directory.appendingPathComponent("profiles.json")
+    let store = ServerProfileStore(fileURL: fileURL)
+
+    let profiles = try store.load()
+
+    #expect(profiles.isEmpty)
+}
+
+@Test func loadReturnsProfilesWhenFileExists() throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let fileURL = directory.appendingPathComponent("profiles.json")
+    let expectedProfile = makeProfile(dataDirectory: directory)
+    try JSONEncoder().encode([expectedProfile]).write(to: fileURL)
+    let store = ServerProfileStore(fileURL: fileURL)
+
+    let profiles = try store.load()
+    let profile = try #require(profiles.first)
+
+    #expect(profiles.count == 1)
+    #expect(profile.id == expectedProfile.id)
+    #expect(profile.version == expectedProfile.version)
+    #expect(profile.dataDirectory == expectedProfile.dataDirectory)
+    #expect(profile.name == expectedProfile.name)
+    #expect(profile.port == expectedProfile.port)
+    #expect(profile.memoryInMB == expectedProfile.memoryInMB)
+}
+
+@Test func saveWritesProfilesToFile() throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let fileURL = directory
+        .appendingPathComponent("Application Support", isDirectory: true)
+        .appendingPathComponent("profiles.json")
+    let profile = makeProfile(dataDirectory: directory)
+    let store = ServerProfileStore(fileURL: fileURL)
+
+    try store.save([profile])
+
+    let profiles = try store.load()
+    #expect(profiles.count == 1)
+    #expect(profiles.first?.id == profile.id)
+}

@@ -14,9 +14,22 @@
 		0E670C6B30733626009A0E96 /* SwiftServerController.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftServerController.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0E7A1B2C3075000000000001 /* Exceptions for "SwiftServerController" folder in "SwiftServerController" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core,
+			);
+			target = 0E670C6A30733626009A0E96 /* SwiftServerController */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0E670C6D30733626009A0E96 /* SwiftServerController */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0E7A1B2C3075000000000001 /* Exceptions for "SwiftServerController" folder in "SwiftServerController" target */,
+			);
 			path = SwiftServerController;
 			sourceTree = "<group>";
 		};

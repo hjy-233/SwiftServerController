@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct MinecraftServerProfile: Identifiable, Codable {
+public struct MinecraftServerProfile: Identifiable, Codable, Sendable {
     public let id: UUID
     public let version: String
     public let dataDirectory: URL
