@@ -92,9 +92,28 @@ struct ContentView: View {
                 Label("添加服务器", systemImage: "plus")
             }
         }
-        .sheet(isPresented: $isShowingCreateServer) {
-            CreateServerView()
-        }
+        .sheet(
+            isPresented: $isShowingCreateServer,
+            onDismiss: {
+                Task {
+                    isLoading = true
+                    errorMessage = nil
+
+                    defer {
+                        isLoading = false
+                    }
+
+                    do {
+                        containers = try await ContainerClient().listContainers()
+                    } catch {
+                        errorMessage = error.localizedDescription
+                    }
+                }
+            },
+            content: {
+                CreateServerView()
+            }
+        )
     }
 }
 
