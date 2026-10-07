@@ -5,6 +5,7 @@
 //  Created by hjy_666 on 2026/10/6.
 //
 
+import SwiftServerControllerCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -18,6 +19,44 @@ struct CreateServerView: View {
     @State private var serverMemory = 4096
     @State private var isSelectingDirectory = false
     @State private var errorMessage: String?
+    @State private var isCreating = false
+
+    private func createServer() async {
+        let trimmedName = serverName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedName.isEmpty else {
+            errorMessage = "请输入服务器名称。"
+            return
+        }
+
+        guard let serverDirectory else {
+            errorMessage = "请选择服务器目录。"
+            return
+        }
+
+        isCreating = true
+        errorMessage = nil
+
+        defer {
+            isCreating = false
+        }
+
+        let profile = MinecraftServerProfile(
+            id: UUID(),
+            version: serverVersion.trimmingCharacters(in: .whitespacesAndNewlines),
+            dataDirectory: serverDirectory,
+            name: trimmedName,
+            port: serverPort,
+            memoryInMB: serverMemory
+        )
+
+        do {
+            try await ContainerClient().createMinecraftContainer(profile: profile)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 
     var body: some View {
         Form {
@@ -45,10 +84,12 @@ struct CreateServerView: View {
                     .foregroundStyle(.red)
             }
         }
+        .disabled(isCreating)
+        .interactiveDismissDisabled(isCreating)
         .fileImporter(
             isPresented: $isSelectingDirectory,
             allowedContentTypes: [.folder],
-            allowsMultipleSelection: false,
+            allowsMultipleSelection: false
         ) { result in
             switch result {
             case let .success(urls):
@@ -65,6 +106,25 @@ struct CreateServerView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") {
                     dismiss()
+                }
+                .disabled(isCreating)
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                if isCreating {
+                    ProgressView()
+                } else {
+                    Button("创建") {
+                        Task {
+                            await createServer()
+                        }
+                    }
+                    .disabled(
+                        serverName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || serverVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || serverDirectory == nil
+                            || serverMemory <= 0
+                    )
                 }
             }
         }

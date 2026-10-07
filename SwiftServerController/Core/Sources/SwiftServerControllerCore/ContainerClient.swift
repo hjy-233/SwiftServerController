@@ -63,7 +63,7 @@ public struct ContainerClient: Sendable {
         guard process.terminationStatus == 0 else {
             throw ContainerClientError.commandFailed(
                 exitCode: process.terminationStatus,
-                message: output
+                message: output,
             )
         }
 
@@ -106,7 +106,7 @@ public struct ContainerClient: Sendable {
 
         guard FileManager.default.fileExists(
             atPath: serverJarURL.path,
-            isDirectory: &isDirectory
+            isDirectory: &isDirectory,
         ), !isDirectory.boolValue else {
             throw ContainerClientError.serverJarNotFound
         }
