@@ -142,6 +142,8 @@ public struct ContainerClient: Sendable {
             "\(profile.port):25565",
             "--mount",
             "type=bind,source=\(profile.dataDirectory.path),target=/server",
+            "--workdir",
+            "/server",
             "docker.io/library/eclipse-temurin:25-jre",
             "java",
             "-Xmx\(profile.memoryInMB)M",
