@@ -158,7 +158,7 @@ public struct ContainerClient: Sendable {
     }
 }
 
-public struct ContainerInfo: Decodable, Identifiable {
+public struct ContainerInfo: Decodable, Identifiable, Sendable {
     public let status: String
     public let configuration: Configuration
 
@@ -166,12 +166,12 @@ public struct ContainerInfo: Decodable, Identifiable {
         configuration.id
     }
 
-    public struct Configuration: Decodable {
+    public struct Configuration: Decodable, Sendable {
         public let id: String
         public let image: Image
     }
 
-    public struct Image: Decodable {
+    public struct Image: Decodable, Sendable {
         public let reference: String
     }
 }

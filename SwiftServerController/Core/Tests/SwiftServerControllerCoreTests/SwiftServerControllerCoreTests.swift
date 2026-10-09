@@ -181,3 +181,18 @@ private func makeProfile(dataDirectory: URL) -> MinecraftServerProfile {
     #expect(profiles.count == 1)
     #expect(profiles.first?.id == profile.id)
 }
+
+@Test func addAppendsProfileWithoutReplacingExistingProfiles() throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let fileURL = directory.appendingPathComponent("profiles.json")
+    let firstProfile = makeProfile(dataDirectory: directory)
+    let secondProfile = makeProfile(dataDirectory: directory)
+    let store = ServerProfileStore(fileURL: fileURL)
+    try store.save([firstProfile])
+
+    try store.add(secondProfile)
+
+    let profileIDs = try Set(store.load().map(\.id))
+    #expect(profileIDs == [firstProfile.id, secondProfile.id])
+}

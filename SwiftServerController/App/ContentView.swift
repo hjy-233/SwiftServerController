@@ -14,6 +14,22 @@ struct ContentView: View {
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
     @State private var isShowingCreateServer = false
+    @State private var profiles = [MinecraftServerProfile]()
+
+    private func reload() async {
+        isLoading = true
+        errorMessage = nil
+
+        defer {
+            isLoading = false
+        }
+
+        do {
+            try await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 
     private func toggleContainer(_ container: ContainerInfo) async {
         isLoading = true
@@ -38,6 +54,21 @@ struct ContentView: View {
         }
     }
 
+    private func profile(for container: ContainerInfo) -> MinecraftServerProfile? {
+        profiles.first {
+            container.id == "minecraft-\($0.id)"
+        }
+    }
+
+    private func refresh() async throws {
+        let client = ContainerClient()
+        let store = try ServerProfileStore()
+
+        version = try await client.version()
+        containers = try await client.listContainers()
+        profiles = try store.load()
+    }
+
     var body: some View {
         VStack {
             Text("版本:\(version)")
@@ -57,10 +88,24 @@ struct ContentView: View {
                     )
                 } else {
                     List(containers) { container in
+                        let serverProfile = profile(for: container)
+
                         HStack {
-                            Text(container.id)
+                            VStack(alignment: .leading) {
+                                Text(serverProfile?.name ?? container.id)
+
+                                if serverProfile != nil {
+                                    Text(container.id)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+
+                            Spacer()
+
                             Text(container.configuration.image.reference)
                             Text(container.status)
+
                             Button(container.status == "running" ? "停止" : "启动") {
                                 Task {
                                     await toggleContainer(container)
@@ -70,19 +115,12 @@ struct ContentView: View {
                     }
                 }
             }
-            Button("Check") {
+            Button("刷新") {
                 Task {
-                    isLoading = true
-                    errorMessage = nil
-                    do {
-                        version = try await ContainerClient().version()
-                        containers = try await ContainerClient().listContainers()
-                    } catch {
-                        errorMessage = error.localizedDescription
-                    }
-                    isLoading = false
+                    await reload()
                 }
-            }.disabled(isLoading)
+            }
+            .disabled(isLoading)
         }
         .padding()
         .toolbar {
@@ -96,24 +134,16 @@ struct ContentView: View {
             isPresented: $isShowingCreateServer,
             onDismiss: {
                 Task {
-                    isLoading = true
-                    errorMessage = nil
-
-                    defer {
-                        isLoading = false
-                    }
-
-                    do {
-                        containers = try await ContainerClient().listContainers()
-                    } catch {
-                        errorMessage = error.localizedDescription
-                    }
+                    await reload()
                 }
             },
             content: {
                 CreateServerView()
             }
         )
+        .task {
+            await reload()
+        }
     }
 }
 

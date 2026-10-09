@@ -52,6 +52,7 @@ struct CreateServerView: View {
 
         do {
             try await ContainerClient().createMinecraftContainer(profile: profile)
+            try ServerProfileStore().add(profile)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
