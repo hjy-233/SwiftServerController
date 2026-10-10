@@ -221,10 +221,35 @@ private func makeProfile(dataDirectory: URL) -> MinecraftServerProfile {
     let sourceData = Data("server jar".utf8)
     try sourceData.write(to: sourceJarURL)
 
-    let preparedDirectory = try store.prepareDataDirectory(for: id, serverJarURL: sourceJarURL)
+    let preparedDirectory = try store.prepareDataDirectory(
+        for: id,
+        serverJarURL: sourceJarURL,
+        eulaAccepted: true,
+    )
 
     let copiedJarURL = preparedDirectory.appendingPathComponent("server.jar")
+    let eulaURL = preparedDirectory.appendingPathComponent("eula.txt")
     #expect(preparedDirectory == store.dataDirectory(for: id))
     #expect(FileManager.default.fileExists(atPath: sourceJarURL.path))
     #expect(try Data(contentsOf: copiedJarURL) == sourceData)
+    #expect(try String(contentsOf: eulaURL, encoding: .utf8) == "eula=true\n")
+}
+
+@Test func prepareDataDirectoryRejectsUnacceptedEULAWithoutCreatingDirectory() throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ServerProfileStore(fileURL: directory.appendingPathComponent("servers.json"))
+    let id = UUID()
+    let sourceJarURL = directory.appendingPathComponent("source.jar")
+    try Data("server jar".utf8).write(to: sourceJarURL)
+
+    #expect(throws: ContainerClientError.eulaNotAccepted) {
+        try store.prepareDataDirectory(
+            for: id,
+            serverJarURL: sourceJarURL,
+            eulaAccepted: false,
+        )
+    }
+
+    #expect(!FileManager.default.fileExists(atPath: store.dataDirectory(for: id).path))
 }

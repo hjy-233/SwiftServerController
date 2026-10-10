@@ -20,6 +20,7 @@ struct CreateServerView: View {
     @State private var isSelectingDirectory = false
     @State private var errorMessage: String?
     @State private var isCreating = false
+    @State private var hasAcceptedEULA = false
 
     private func createServer() async {
         let trimmedName = serverName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -31,6 +32,11 @@ struct CreateServerView: View {
 
         guard let serverDirectory else {
             errorMessage = "请选择服务器目录。"
+            return
+        }
+
+        guard hasAcceptedEULA else {
+            errorMessage = ContainerClientError.eulaNotAccepted.localizedDescription
             return
         }
 
@@ -84,6 +90,7 @@ struct CreateServerView: View {
                 Text(errorMessage)
                     .foregroundStyle(.red)
             }
+            Toggle("我已阅读并同意 Minecraft EULA", isOn: $hasAcceptedEULA)
         }
         .disabled(isCreating)
         .interactiveDismissDisabled(isCreating)
@@ -125,6 +132,7 @@ struct CreateServerView: View {
                             || serverVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             || serverDirectory == nil
                             || serverMemory <= 0
+                            || !hasAcceptedEULA
                     )
                 }
             }

@@ -59,11 +59,30 @@ public struct ServerProfileStore: Sendable {
 
     public func prepareDataDirectory(
         for id: UUID,
-        serverJarURL: URL
+        serverJarURL: URL,
+        eulaAccepted: Bool
     ) throws -> URL {
+        guard eulaAccepted else {
+            throw ContainerClientError.eulaNotAccepted
+        }
+
         let dataDirectory = dataDirectory(for: id)
-        try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
-        try FileManager.default.copyItem(at: serverJarURL, to: dataDirectory.appendingPathComponent("server.jar"))
+        try FileManager.default.createDirectory(
+            at: dataDirectory,
+            withIntermediateDirectories: true,
+        )
+
+        try FileManager.default.copyItem(
+            at: serverJarURL,
+            to: dataDirectory.appendingPathComponent("server.jar"),
+        )
+
+        try "eula=true\n".write(
+            to: dataDirectory.appendingPathComponent("eula.txt"),
+            atomically: true,
+            encoding: .utf8,
+        )
+
         return dataDirectory
     }
 }
