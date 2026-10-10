@@ -14,13 +14,13 @@ struct CreateServerView: View {
 
     @State private var serverName = ""
     @State private var serverVersion = "26.3"
-    @State private var serverDirectory: URL?
     @State private var serverPort: UInt16 = 25565
     @State private var serverMemory = 4096
-    @State private var isSelectingDirectory = false
     @State private var errorMessage: String?
     @State private var isCreating = false
     @State private var hasAcceptedEULA = false
+    @State private var serverJarURL: URL?
+    @State private var isSelectingServerJar = false
 
     private func createServer() async {
         let trimmedName = serverName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -30,8 +30,8 @@ struct CreateServerView: View {
             return
         }
 
-        guard let serverDirectory else {
-            errorMessage = "请选择服务器目录。"
+        guard let serverJarURL else {
+            errorMessage = "请选择 server.jar。"
             return
         }
 
@@ -47,18 +47,25 @@ struct CreateServerView: View {
             isCreating = false
         }
 
-        let profile = MinecraftServerProfile(
-            id: UUID(),
-            version: serverVersion.trimmingCharacters(in: .whitespacesAndNewlines),
-            dataDirectory: serverDirectory,
-            name: trimmedName,
-            port: serverPort,
-            memoryInMB: serverMemory
-        )
-
         do {
+            let id = UUID()
+            let store = try ServerProfileStore()
+            let dataDirectory = try store.prepareDataDirectory(
+                for: id,
+                serverJarURL: serverJarURL,
+                eulaAccepted: hasAcceptedEULA
+            )
+            let profile = MinecraftServerProfile(
+                id: id,
+                version: serverVersion.trimmingCharacters(in: .whitespacesAndNewlines),
+                dataDirectory: dataDirectory,
+                name: trimmedName,
+                port: serverPort,
+                memoryInMB: serverMemory
+            )
+
             try await ContainerClient().createMinecraftContainer(profile: profile)
-            try ServerProfileStore().add(profile)
+            try store.add(profile)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
@@ -70,15 +77,15 @@ struct CreateServerView: View {
             TextField("名称", text: $serverName)
             TextField("版本", text: $serverVersion)
 
-            LabeledContent("服务器目录") {
+            LabeledContent("服务器 JAR") {
                 HStack {
-                    Text(serverDirectory?.path ?? "未选择")
+                    Text(serverJarURL?.lastPathComponent ?? "未选择")
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
 
                     Button("选择…") {
-                        isSelectingDirectory = true
+                        isSelectingServerJar = true
                     }
                 }
             }
@@ -95,19 +102,12 @@ struct CreateServerView: View {
         .disabled(isCreating)
         .interactiveDismissDisabled(isCreating)
         .fileImporter(
-            isPresented: $isSelectingDirectory,
-            allowedContentTypes: [.folder],
+            isPresented: $isSelectingServerJar,
+            allowedContentTypes: [UTType(filenameExtension: "jar") ?? .data],
             allowsMultipleSelection: false
         ) { result in
-            switch result {
-            case let .success(urls):
-                serverDirectory = urls.first
-                errorMessage = nil
-            case let .failure(error):
-                let cocoaError = error as NSError
-                if cocoaError.domain != NSCocoaErrorDomain || cocoaError.code != NSUserCancelledError {
-                    errorMessage = error.localizedDescription
-                }
+            if case let .success(urls) = result {
+                serverJarURL = urls.first
             }
         }
         .toolbar {
@@ -130,7 +130,7 @@ struct CreateServerView: View {
                     .disabled(
                         serverName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             || serverVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || serverDirectory == nil
+                            || serverJarURL == nil
                             || serverMemory <= 0
                             || !hasAcceptedEULA
                     )
