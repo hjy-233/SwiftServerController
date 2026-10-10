@@ -196,3 +196,35 @@ private func makeProfile(dataDirectory: URL) -> MinecraftServerProfile {
     let profileIDs = try Set(store.load().map(\.id))
     #expect(profileIDs == [firstProfile.id, secondProfile.id])
 }
+
+@Test func dataDirectoryUsesServersFolderAndProfileID() throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ServerProfileStore(fileURL: directory.appendingPathComponent("servers.json"))
+    let id = UUID()
+    let expectedURL = directory
+        .appendingPathComponent("Servers", isDirectory: true)
+        .appendingPathComponent(id.uuidString, isDirectory: true)
+
+    let dataDirectory = store.dataDirectory(for: id)
+
+    #expect(dataDirectory == expectedURL)
+    #expect(!FileManager.default.fileExists(atPath: dataDirectory.path))
+}
+
+@Test func prepareDataDirectoryCopiesServerJarWithoutRemovingSource() throws {
+    let directory = try makeTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ServerProfileStore(fileURL: directory.appendingPathComponent("servers.json"))
+    let id = UUID()
+    let sourceJarURL = directory.appendingPathComponent("source.jar")
+    let sourceData = Data("server jar".utf8)
+    try sourceData.write(to: sourceJarURL)
+
+    let preparedDirectory = try store.prepareDataDirectory(for: id, serverJarURL: sourceJarURL)
+
+    let copiedJarURL = preparedDirectory.appendingPathComponent("server.jar")
+    #expect(preparedDirectory == store.dataDirectory(for: id))
+    #expect(FileManager.default.fileExists(atPath: sourceJarURL.path))
+    #expect(try Data(contentsOf: copiedJarURL) == sourceData)
+}

@@ -49,4 +49,21 @@ public struct ServerProfileStore: Sendable {
         profiles.append(profile)
         try save(profiles)
     }
+
+    public func dataDirectory(for id: UUID) -> URL {
+        fileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("Servers", isDirectory: true)
+            .appendingPathComponent(id.uuidString, isDirectory: true)
+    }
+
+    public func prepareDataDirectory(
+        for id: UUID,
+        serverJarURL: URL
+    ) throws -> URL {
+        let dataDirectory = dataDirectory(for: id)
+        try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: serverJarURL, to: dataDirectory.appendingPathComponent("server.jar"))
+        return dataDirectory
+    }
 }
