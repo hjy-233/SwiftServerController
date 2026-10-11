@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var isShowingCreateServer = false
     @State private var profiles = [MinecraftServerProfile]()
     @State private var profilePendingDeletion: MinecraftServerProfile?
+    @State private var selectedProfileID: MinecraftServerProfile.ID?
 
     private func reload() async {
         isLoading = true
@@ -61,6 +62,12 @@ struct ContentView: View {
         }
     }
 
+    private var selectedProfile: MinecraftServerProfile? {
+        profiles.first {
+            $0.id == selectedProfileID
+        }
+    }
+
     private func deleteServer(
         _ profile: MinecraftServerProfile,
         container: ContainerInfo?
@@ -98,13 +105,16 @@ struct ContentView: View {
         version = try await client.version()
         containers = try await client.listContainers()
         profiles = try store.load()
+
+        if !profiles.contains(where: { $0.id == selectedProfileID }) {
+            selectedProfileID = profiles.first?.id
+        }
     }
 
     var body: some View {
-        VStack {
-            Text("版本:\(version)")
+        NavigationSplitView {
             Group {
-                if isLoading {
+                if isLoading, profiles.isEmpty {
                     ProgressView("正在加载")
                 } else if let errorMessage {
                     ContentUnavailableView(
@@ -118,59 +128,89 @@ struct ContentView: View {
                         systemImage: "shippingbox",
                     )
                 } else {
-                    List(profiles) { profile in
+                    List(profiles, selection: $selectedProfileID) { profile in
                         let container = container(for: profile)
 
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(profile.name)
+                        VStack(alignment: .leading) {
+                            Text(profile.name)
 
-                                if let container {
-                                    Text(container.id)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                } else {
-                                    Text("容器不存在")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-
-                            Spacer()
-
-                            if let container {
-                                Text(container.configuration.image.reference)
-                                Text(container.status == "running" ? "运行中" : "已停止")
-
-                                Button(container.status == "running" ? "停止" : "启动") {
-                                    Task {
-                                        await toggleContainer(container)
-                                    }
-                                }
-                            }
-
-                            Button(role: .destructive) {
-                                profilePendingDeletion = profile
-                            } label: {
-                                Label("删除服务器", systemImage: "trash")
-                            }
+                            Text(container?.status == "running" ? "运行中" : container == nil ? "容器不存在" : "已停止")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
+                        .tag(profile.id)
                     }
                 }
             }
-            Button("刷新") {
-                Task {
-                    await reload()
+            .navigationTitle("服务器")
+        } detail: {
+            if let profile = selectedProfile {
+                let container = container(for: profile)
+
+                Form {
+                    Section("服务器") {
+                        LabeledContent("名称", value: profile.name)
+                        LabeledContent("版本", value: profile.version)
+                        LabeledContent("端口", value: String(profile.port))
+                        LabeledContent("内存", value: "\(profile.memoryInMB) MB")
+                    }
+
+                    Section("容器") {
+                        if let container {
+                            LabeledContent(
+                                "状态",
+                                value: container.status == "running" ? "运行中" : "已停止"
+                            )
+                            LabeledContent(
+                                "镜像",
+                                value: container.configuration.image.reference
+                            )
+                        } else {
+                            LabeledContent("状态", value: "容器不存在")
+                        }
+                    }
                 }
+                .formStyle(.grouped)
+            } else {
+                ContentUnavailableView(
+                    "未选择服务器",
+                    systemImage: "sidebar.left",
+                    description: Text("请从侧边栏选择一个服务器。")
+                )
             }
-            .disabled(isLoading)
         }
-        .padding()
         .toolbar {
             Button {
                 isShowingCreateServer = true
             } label: {
                 Label("添加服务器", systemImage: "plus")
+            }
+
+            if let profile = selectedProfile {
+                if let container = container(for: profile) {
+                    Button {
+                        Task {
+                            await toggleContainer(container)
+                        }
+                    } label: {
+                        Label(
+                            container.status == "running" ? "停止" : "启动",
+                            systemImage: container.status == "running" ? "stop.fill" : "play.fill"
+                        )
+                    }
+                    .disabled(isLoading)
+                }
+
+                Menu {
+                    Button(role: .destructive) {
+                        profilePendingDeletion = profile
+                    } label: {
+                        Label("删除服务器", systemImage: "trash")
+                    }
+                } label: {
+                    Label("更多操作", systemImage: "ellipsis.circle")
+                }
+                .disabled(isLoading)
             }
         }
         .sheet(
