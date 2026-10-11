@@ -15,7 +15,7 @@ struct ContentView: View {
     @State private var errorMessage: String?
     @State private var isShowingCreateServer = false
     @State private var profiles = [MinecraftServerProfile]()
-    @State private var containerPendingDeletion: ContainerInfo?
+    @State private var profilePendingDeletion: MinecraftServerProfile?
 
     private func reload() async {
         isLoading = true
@@ -55,13 +55,16 @@ struct ContentView: View {
         }
     }
 
-    private func profile(for container: ContainerInfo) -> MinecraftServerProfile? {
-        profiles.first {
-            container.id == "minecraft-\($0.id)"
+    private func container(for profile: MinecraftServerProfile) -> ContainerInfo? {
+        containers.first {
+            $0.id == "minecraft-\(profile.id)"
         }
     }
 
-    private func deleteServer(_ container: ContainerInfo) async {
+    private func deleteServer(
+        _ profile: MinecraftServerProfile,
+        container: ContainerInfo?
+    ) async {
         isLoading = true
         errorMessage = nil
 
@@ -72,15 +75,15 @@ struct ContentView: View {
         do {
             let client = ContainerClient()
 
-            if container.status == "running" {
-                try await client.stopContainer(id: container.id)
+            if let container {
+                if container.status == "running" {
+                    try await client.stopContainer(id: container.id)
+                }
+
+                try await client.deleteContainer(id: container.id)
             }
 
-            try await client.deleteContainer(id: container.id)
-
-            if let serverProfile = profile(for: container) {
-                try ServerProfileStore().remove(id: serverProfile.id)
-            }
+            try ServerProfileStore().remove(id: profile.id)
 
             try await refresh()
         } catch {
@@ -109,21 +112,25 @@ struct ContentView: View {
                         systemImage: "exclamationmark.triangle",
                         description: Text(errorMessage),
                     )
-                } else if containers.isEmpty {
+                } else if profiles.isEmpty {
                     ContentUnavailableView(
-                        "暂无容器",
+                        "暂无服务器",
                         systemImage: "shippingbox",
                     )
                 } else {
-                    List(containers) { container in
-                        let serverProfile = profile(for: container)
+                    List(profiles) { profile in
+                        let container = container(for: profile)
 
                         HStack {
                             VStack(alignment: .leading) {
-                                Text(serverProfile?.name ?? container.id)
+                                Text(profile.name)
 
-                                if serverProfile != nil {
+                                if let container {
                                     Text(container.id)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text("容器不存在")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -131,21 +138,21 @@ struct ContentView: View {
 
                             Spacer()
 
-                            Text(container.configuration.image.reference)
-                            Text(container.status)
+                            if let container {
+                                Text(container.configuration.image.reference)
+                                Text(container.status == "running" ? "运行中" : "已停止")
 
-                            Button(container.status == "running" ? "停止" : "启动") {
-                                Task {
-                                    await toggleContainer(container)
+                                Button(container.status == "running" ? "停止" : "启动") {
+                                    Task {
+                                        await toggleContainer(container)
+                                    }
                                 }
                             }
 
-                            if serverProfile != nil {
-                                Button(role: .destructive) {
-                                    containerPendingDeletion = container
-                                } label: {
-                                    Label("删除服务器", systemImage: "trash")
-                                }
+                            Button(role: .destructive) {
+                                profilePendingDeletion = profile
+                            } label: {
+                                Label("删除服务器", systemImage: "trash")
                             }
                         }
                     }
@@ -180,19 +187,22 @@ struct ContentView: View {
         .alert(
             "删除服务器？",
             isPresented: Binding(
-                get: { containerPendingDeletion != nil },
+                get: { profilePendingDeletion != nil },
                 set: { isPresented in
                     if !isPresented {
-                        containerPendingDeletion = nil
+                        profilePendingDeletion = nil
                     }
                 }
             ),
-            presenting: containerPendingDeletion
-        ) { container in
+            presenting: profilePendingDeletion
+        ) { profile in
             Button("删除", role: .destructive) {
-                containerPendingDeletion = nil
+                profilePendingDeletion = nil
                 Task {
-                    await deleteServer(container)
+                    await deleteServer(
+                        profile,
+                        container: container(for: profile)
+                    )
                 }
             }
             Button("取消", role: .cancel) {}
