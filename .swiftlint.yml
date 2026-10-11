@@ -1,5 +1,15 @@
 excluded:
   - SwiftServerController/Core/.build
 
+opt_in_rules:
+  - async_without_await
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - empty_count
+  - empty_string
+  - first_where
+  - force_unwrapping
+  - sorted_imports
+
 trailing_comma:
   mandatory_comma: true

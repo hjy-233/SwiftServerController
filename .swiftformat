@@ -1,0 +1,2 @@
+--exclude SwiftServerController/Core/.build
+--disable trailingCommas
