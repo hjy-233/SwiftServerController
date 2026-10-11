@@ -160,6 +160,12 @@ public struct ContainerClient: Sendable {
             "nogui",
         ]
     }
+
+    public func stats(id: String) async throws -> ContainerStats? {
+        let output = try await execute(arguments: ["stats", id, "--format", "json", "--no-stream"])
+        let stats = try JSONDecoder().decode([ContainerStats].self, from: Data(output.utf8))
+        return stats.first { $0.id == id }
+    }
 }
 
 public struct ContainerInfo: Decodable, Identifiable, Sendable {
@@ -178,4 +184,16 @@ public struct ContainerInfo: Decodable, Identifiable, Sendable {
     public struct Image: Decodable, Sendable {
         public let reference: String
     }
+}
+
+public struct ContainerStats: Decodable, Sendable {
+    public let id: String
+    public let cpuUsageUsec: UInt64
+    public let memoryUsageBytes: UInt64
+    public let memoryLimitBytes: UInt64
+    public let networkRxBytes: UInt64
+    public let networkTxBytes: UInt64
+    public let blockReadBytes: UInt64
+    public let blockWriteBytes: UInt64
+    public let numProcesses: Int
 }

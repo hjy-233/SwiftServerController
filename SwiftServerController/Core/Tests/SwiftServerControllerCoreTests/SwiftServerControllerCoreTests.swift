@@ -53,6 +53,38 @@ import Testing
     #expect(containers.isEmpty)
 }
 
+@Test func containerStatsDecode() throws {
+    let json = """
+    [
+      {
+        "cpuUsageUsec": 17214923,
+        "id": "minecraft-7164DBF8-80CF-4106-9FAA-D0040CA3DE74",
+        "memoryUsageBytes": 809676800,
+        "networkRxBytes": 83981,
+        "blockReadBytes": 140906496,
+        "memoryLimitBytes": 2147483648,
+        "networkTxBytes": 5354,
+        "numProcesses": 34,
+        "blockWriteBytes": 278528
+      }
+    ]
+    """
+
+    let stats = try #require(
+        JSONDecoder().decode([ContainerStats].self, from: Data(json.utf8)).first
+    )
+
+    #expect(stats.id == "minecraft-7164DBF8-80CF-4106-9FAA-D0040CA3DE74")
+    #expect(stats.cpuUsageUsec == 17_214_923)
+    #expect(stats.memoryUsageBytes == 809_676_800)
+    #expect(stats.memoryLimitBytes == 2_147_483_648)
+    #expect(stats.networkRxBytes == 83981)
+    #expect(stats.networkTxBytes == 5354)
+    #expect(stats.blockReadBytes == 140_906_496)
+    #expect(stats.blockWriteBytes == 278_528)
+    #expect(stats.numProcesses == 34)
+}
+
 @Test func createMinecraftContainerThrowsWhenServerJarIsMissing() async throws {
     let directory = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }

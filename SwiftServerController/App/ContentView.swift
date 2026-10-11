@@ -158,6 +158,10 @@ struct ContentView: View {
                     Section("容器") {
                         if let container {
                             LabeledContent(
+                                "ID",
+                                value: container.id
+                            )
+                            LabeledContent(
                                 "状态",
                                 value: container.status == "running" ? "运行中" : "已停止"
                             )
@@ -206,6 +210,11 @@ struct ContentView: View {
                         profilePendingDeletion = profile
                     } label: {
                         Label("删除服务器", systemImage: "trash")
+                    }
+                    Button {
+                        NSWorkspace.shared.open(profile.dataDirectory)
+                    } label: {
+                        Label("打开文件夹", systemImage: "folder")
                     }
                 } label: {
                     Label("更多操作", systemImage: "ellipsis.circle")
