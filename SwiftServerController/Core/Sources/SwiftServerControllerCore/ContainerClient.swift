@@ -100,6 +100,10 @@ public struct ContainerClient: Sendable {
         _ = try await execute(arguments: ["stop", id])
     }
 
+    public func deleteContainer(id: String) async throws {
+        _ = try await execute(arguments: ["delete", id])
+    }
+
     public func createMinecraftContainer(profile: MinecraftServerProfile) async throws {
         let serverJarURL = profile.dataDirectory.appendingPathComponent("server.jar")
         var isDirectory: ObjCBool = false

@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var errorMessage: String?
     @State private var isShowingCreateServer = false
     @State private var profiles = [MinecraftServerProfile]()
+    @State private var containerPendingDeletion: ContainerInfo?
 
     private func reload() async {
         isLoading = true
@@ -57,6 +58,33 @@ struct ContentView: View {
     private func profile(for container: ContainerInfo) -> MinecraftServerProfile? {
         profiles.first {
             container.id == "minecraft-\($0.id)"
+        }
+    }
+
+    private func deleteServer(_ container: ContainerInfo) async {
+        isLoading = true
+        errorMessage = nil
+
+        defer {
+            isLoading = false
+        }
+
+        do {
+            let client = ContainerClient()
+
+            if container.status == "running" {
+                try await client.stopContainer(id: container.id)
+            }
+
+            try await client.deleteContainer(id: container.id)
+
+            if let serverProfile = profile(for: container) {
+                try ServerProfileStore().remove(id: serverProfile.id)
+            }
+
+            try await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -111,6 +139,14 @@ struct ContentView: View {
                                     await toggleContainer(container)
                                 }
                             }
+
+                            if serverProfile != nil {
+                                Button(role: .destructive) {
+                                    containerPendingDeletion = container
+                                } label: {
+                                    Label("删除服务器", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                 }
@@ -141,6 +177,28 @@ struct ContentView: View {
                 CreateServerView()
             }
         )
+        .alert(
+            "删除服务器？",
+            isPresented: Binding(
+                get: { containerPendingDeletion != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        containerPendingDeletion = nil
+                    }
+                }
+            ),
+            presenting: containerPendingDeletion
+        ) { container in
+            Button("删除", role: .destructive) {
+                containerPendingDeletion = nil
+                Task {
+                    await deleteServer(container)
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: { _ in
+            Text("容器和服务器记录将被删除，服务器文件会保留。")
+        }
         .task {
             await reload()
         }
