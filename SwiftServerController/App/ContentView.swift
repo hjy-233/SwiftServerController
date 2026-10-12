@@ -5,6 +5,7 @@
 //  Created by hjy_666 on 2026/10/5.
 //
 
+import Foundation
 import SwiftServerControllerCore
 import SwiftUI
 
@@ -17,6 +18,10 @@ struct ContentView: View {
     @State private var profiles = [MinecraftServerProfile]()
     @State private var profilePendingDeletion: MinecraftServerProfile?
     @State private var selectedProfileID: MinecraftServerProfile.ID?
+    @State private var selectedStats: ContainerStats?
+    @State private var selectedCPUUsagePercent: Double?
+    @State private var isLoadingStats = false
+    @State private var statsErrorMessage: String?
 
     private func reload() async {
         isLoading = true
@@ -147,34 +152,14 @@ struct ContentView: View {
             if let profile = selectedProfile {
                 let container = container(for: profile)
 
-                Form {
-                    Section("服务器") {
-                        LabeledContent("名称", value: profile.name)
-                        LabeledContent("版本", value: profile.version)
-                        LabeledContent("端口", value: String(profile.port))
-                        LabeledContent("内存", value: "\(profile.memoryInMB) MB")
-                    }
-
-                    Section("容器") {
-                        if let container {
-                            LabeledContent(
-                                "ID",
-                                value: container.id
-                            )
-                            LabeledContent(
-                                "状态",
-                                value: container.status == "running" ? "运行中" : "已停止"
-                            )
-                            LabeledContent(
-                                "镜像",
-                                value: container.configuration.image.reference
-                            )
-                        } else {
-                            LabeledContent("状态", value: "容器不存在")
-                        }
-                    }
-                }
-                .formStyle(.grouped)
+                ServerOverviewView(
+                    profile: profile,
+                    container: container,
+                    stats: selectedStats,
+                    cpuUsagePercent: selectedCPUUsagePercent,
+                    isLoadingStats: isLoadingStats,
+                    statsErrorMessage: statsErrorMessage
+                )
             } else {
                 ContentUnavailableView(
                     "未选择服务器",
@@ -260,6 +245,98 @@ struct ContentView: View {
         }
         .task {
             await reload()
+        }
+        .task(id: selectedStatsTaskID) {
+            await monitorSelectedStats()
+        }
+    }
+}
+
+private extension ContentView {
+    var selectedStatsTaskID: String? {
+        guard let profile = selectedProfile,
+              let container = container(for: profile)
+        else {
+            return nil
+        }
+
+        return "\(container.id):\(container.status)"
+    }
+
+    func cpuUsagePercent(
+        currentUsageUsec: UInt64?,
+        previousUsageUsec: UInt64?,
+        elapsedSeconds: TimeInterval?
+    ) -> Double? {
+        guard let currentUsageUsec,
+              let previousUsageUsec,
+              currentUsageUsec >= previousUsageUsec,
+              let elapsedSeconds,
+              elapsedSeconds > 0
+        else {
+            return nil
+        }
+
+        return Double(currentUsageUsec - previousUsageUsec) / elapsedSeconds / 1_000_000 * 100
+    }
+
+    func monitorSelectedStats() async {
+        selectedStats = nil
+        selectedCPUUsagePercent = nil
+        statsErrorMessage = nil
+
+        guard let profile = selectedProfile,
+              let container = container(for: profile),
+              container.status == "running"
+        else {
+            isLoadingStats = false
+            return
+        }
+
+        isLoadingStats = true
+        var previousSample: (usageUsec: UInt64, date: Date)?
+
+        while !Task.isCancelled {
+            do {
+                let stats = try await ContainerClient().stats(id: container.id)
+                let sampleDate = Date()
+
+                guard !Task.isCancelled,
+                      selectedProfileID == profile.id,
+                      self.container(for: profile)?.status == "running"
+                else {
+                    return
+                }
+
+                selectedCPUUsagePercent = cpuUsagePercent(
+                    currentUsageUsec: stats?.cpuUsageUsec,
+                    previousUsageUsec: previousSample?.usageUsec,
+                    elapsedSeconds: previousSample.map { sampleDate.timeIntervalSince($0.date) }
+                )
+
+                previousSample = stats.map { ($0.cpuUsageUsec, sampleDate) }
+                selectedStats = stats
+                statsErrorMessage = nil
+                isLoadingStats = false
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled,
+                      selectedProfileID == profile.id,
+                      self.container(for: profile)?.status == "running"
+                else {
+                    return
+                }
+
+                statsErrorMessage = error.localizedDescription
+                isLoadingStats = false
+            }
+
+            do {
+                try await Task.sleep(for: .seconds(3))
+            } catch {
+                return
+            }
         }
     }
 }
