@@ -9,6 +9,11 @@ import Foundation
 import SwiftServerControllerCore
 import SwiftUI
 
+private enum ServerPage: Hashable {
+    case overview
+    case console
+}
+
 struct ContentView: View {
     @State private var version = "Unknown"
     @State private var containers = [ContainerInfo]()
@@ -22,6 +27,7 @@ struct ContentView: View {
     @State private var selectedCPUUsagePercent: Double?
     @State private var isLoadingStats = false
     @State private var statsErrorMessage: String?
+    @State private var selectedPage = ServerPage.overview
 
     private func reload() async {
         isLoading = true
@@ -152,14 +158,19 @@ struct ContentView: View {
             if let profile = selectedProfile {
                 let container = container(for: profile)
 
-                ServerOverviewView(
-                    profile: profile,
-                    container: container,
-                    stats: selectedStats,
-                    cpuUsagePercent: selectedCPUUsagePercent,
-                    isLoadingStats: isLoadingStats,
-                    statsErrorMessage: statsErrorMessage
-                )
+                switch selectedPage {
+                case .overview:
+                    ServerOverviewView(
+                        profile: profile,
+                        container: container,
+                        stats: selectedStats,
+                        cpuUsagePercent: selectedCPUUsagePercent,
+                        isLoadingStats: isLoadingStats,
+                        statsErrorMessage: statsErrorMessage
+                    )
+                case .console:
+                    ServerConsoleView(profile: profile)
+                }
             } else {
                 ContentUnavailableView(
                     "未选择服务器",
@@ -169,42 +180,57 @@ struct ContentView: View {
             }
         }
         .toolbar {
-            Button {
-                isShowingCreateServer = true
-            } label: {
-                Label("添加服务器", systemImage: "plus")
+            ToolbarItem {
+                Button {
+                    isShowingCreateServer = true
+                } label: {
+                    Label("添加服务器", systemImage: "plus")
+                }
             }
 
             if let profile = selectedProfile {
                 if let container = container(for: profile) {
-                    Button {
-                        Task {
-                            await toggleContainer(container)
+                    ToolbarItem {
+                        Button {
+                            Task {
+                                await toggleContainer(container)
+                            }
+                        } label: {
+                            Label(
+                                container.status == "running" ? "停止" : "启动",
+                                systemImage: container.status == "running" ? "stop.fill" : "play.fill"
+                            )
+                        }
+                        .disabled(isLoading)
+                    }
+                }
+
+                ToolbarItem {
+                    Menu {
+                        Button(role: .destructive) {
+                            profilePendingDeletion = profile
+                        } label: {
+                            Label("删除服务器", systemImage: "trash")
+                        }
+                        Button {
+                            NSWorkspace.shared.open(profile.dataDirectory)
+                        } label: {
+                            Label("打开文件夹", systemImage: "folder")
                         }
                     } label: {
-                        Label(
-                            container.status == "running" ? "停止" : "启动",
-                            systemImage: container.status == "running" ? "stop.fill" : "play.fill"
-                        )
+                        Label("更多操作", systemImage: "ellipsis.circle")
                     }
                     .disabled(isLoading)
                 }
+            }
 
-                Menu {
-                    Button(role: .destructive) {
-                        profilePendingDeletion = profile
-                    } label: {
-                        Label("删除服务器", systemImage: "trash")
+            if selectedProfile != nil {
+                ToolbarItem(placement: .principal) {
+                    Picker("页面", selection: $selectedPage) {
+                        Text("概览").tag(ServerPage.overview)
+                        Text("控制台").tag(ServerPage.console)
                     }
-                    Button {
-                        NSWorkspace.shared.open(profile.dataDirectory)
-                    } label: {
-                        Label("打开文件夹", systemImage: "folder")
-                    }
-                } label: {
-                    Label("更多操作", systemImage: "ellipsis.circle")
-                }
-                .disabled(isLoading)
+                .pickerStyle(.segmented)
             }
         }
         .sheet(
@@ -254,7 +280,8 @@ struct ContentView: View {
 
 private extension ContentView {
     var selectedStatsTaskID: String? {
-        guard let profile = selectedProfile,
+        guard selectedPage == .overview,
+              let profile = selectedProfile,
               let container = container(for: profile)
         else {
             return nil
@@ -287,6 +314,7 @@ private extension ContentView {
 
         guard let profile = selectedProfile,
               let container = container(for: profile),
+              selectedPage == .overview,
               container.status == "running"
         else {
             isLoadingStats = false
